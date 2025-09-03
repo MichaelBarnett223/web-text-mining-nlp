@@ -1,0 +1,229 @@
+from nltk import sent_tokenize, word_tokenize
+from bs4 import BeautifulSoup
+from urllib.request import urlopen
+from nltk.probability import FreqDist
+import matplotlib.pyplot as vis
+from nltk.corpus import stopwords
+from wordcloud import WordCloud
+from textblob import TextBlob
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.metrics.pairwise import cosine_similarity
+from pprint import pprint
+
+class HTMLPages:                
+    def access_data(self, html_url): 
+        """Access HTML content from URL."""
+        html_xters = urlopen(html_url).read()
+        html_data = html_xters.decode("utf-8", "ignore")
+        
+        print(f'Character Length = {len(html_data)}\n')
+        print('Displaying first 200 characters of raw HTML:\n', html_data[:200])
+        
+        # Remove HTML tags
+        cleaner_data = BeautifulSoup(html_data, features="lxml").get_text()
+        print('\nCleaned Text Preview:', cleaner_data[:200])
+        self.cleaner_data = cleaner_data
+        
+    def sentence_tokenizer(self):    
+        """Tokenize the text into sentences."""
+        sentences = sent_tokenize(self.cleaner_data)
+        sentences = [s.replace('\n','').lower() for s in sentences]
+        print(f'\nNumber of Sentences = {len(sentences)}')
+        print('\nSome Tokenized Sentences:\n', sentences[:5])
+        self.sentences = sentences
+        
+    def word_tokenizer(self):    
+        """Tokenize the text into words."""
+        all_words = word_tokenize(self.cleaner_data)
+        print(f'\nNumber of Words = {len(all_words)}')
+        print('\nSome Tokenized Words:\n', all_words[:10])
+        self.all_words = all_words
+        
+    def clean_words(self):
+        """Remove punctuation and stopwords from the tokenized words."""
+        # Remove punctuation
+        words_minus_punct = [wd.lower() for wd in self.all_words if wd.isalpha()]
+        
+        # Remove stopwords
+        stop_words = set(stopwords.words("english"))
+        meaningful_words = [wd for wd in words_minus_punct if wd not in stop_words]
+        
+        print('\nFirst 20 Meaningful Words:\n', meaningful_words[:20])
+        self.meaningful_words = meaningful_words
+    
+    def word_dist_visualizer(self):  
+        """Visualize word frequency distribution."""
+        word_freq = FreqDist(self.meaningful_words)
+        print('\nTop 20 Most Common Words:\n', word_freq.most_common(20))
+        
+        # Plot word frequency
+        vis.figure(figsize=(12,6))
+        word_freq.plot(20, cumulative=False) 
+        
+    def decode_message(self):
+        """Generate a word cloud visualization."""
+        wordcloud = WordCloud(width=800, height=400, background_color='white').generate(" ".join(self.meaningful_words))
+        vis.figure(figsize=(14,14))
+        vis.axis("off")
+        vis.imshow(wordcloud)    
+        
+    def frequency_analysis_aerospace_terms(self):
+        """Analyze frequency of specific aerospace terms."""
+        aerospace_terms = ["aircraft", "satellite", "rocket", "propulsion", "thrust", "engine", "spacecraft"]
+        term_frequency = {term: 0 for term in aerospace_terms}
+        
+        for word in self.meaningful_words:
+            if word in term_frequency:
+                term_frequency[word] += 1
+        
+        print('\nAerospace Term Frequency:\n')
+        pprint(term_frequency)
+    
+    def sentiment_analysis(self):
+        """Perform sentiment analysis on each sentence."""
+        positive, negative, neutral = 0, 0, 0
+
+        # Analyze the sentiment of each sentence
+        for sentence in self.sentences:
+            analysis = TextBlob(sentence).sentiment.polarity
+            if analysis > 0:
+                positive += 1
+            elif analysis < 0:
+                negative += 1
+            else:
+                neutral += 1
+
+        # Visualize sentiment analysis
+        vis.figure(figsize=(8, 6))
+        vis.bar(['Positive', 'Negative', 'Neutral'], [positive, negative, neutral], color=['green', 'red', 'blue'])
+        vis.title('Sentiment Analysis of Webpage Content')
+        vis.xlabel('Sentiment')
+        vis.ylabel('Count')
+        vis.show()
+
+        print(f'\nSentiment Summary:\nPositive Sentences: {positive}\nNegative Sentences: {negative}\nNeutral Sentences: {neutral}')
+    
+    def summarize_aerospace_topics(self):
+        """Summarize sentences related to aerospace topics."""
+        aerospace_terms = ["aircraft", "satellite", "rocket", "propulsion", "thrust", "engine", "spacecraft"]
+        summary = []
+
+        # Extract sentences related to aerospace terms
+        for sentence in self.sentences:
+            if any(term in sentence.lower() for term in aerospace_terms):
+                summary.append(sentence)
+        
+        print('\nAerospace Topics Summary:\n')
+        print(' '.join(summary[:5]))  # Display first 5 relevant sentences
+
+    def search_word(self, search_term):
+        """Search for a word and display its context and frequency."""
+        search_term = search_term.lower()
+        occurrences = []
+
+        # Search in sentences for occurrences
+        for idx, sentence in enumerate(self.sentences):
+            if search_term in sentence.lower():
+                occurrences.append((idx, sentence))
+        
+        # Print results
+        if occurrences:
+            print(f'\nFound "{search_term}" in the following sentences:\n')
+            for idx, sentence in occurrences[:5]:  # Display first 5 matches
+                print(f'Sentence {idx+1}: {sentence}')
+            print(f'\nTotal occurrences of "{search_term}": {len(occurrences)}')
+        else:
+            print(f'\n"{search_term}" not found in the text.')
+
+    def search_in_analysis(self, search_term):
+        """Search for a word within the entire analysis."""
+        search_term = search_term.lower()
+        found_in_words = []
+        found_in_aerospace_terms = []
+        found_in_sentiment = []
+
+        # Search in meaningful words
+        for word in self.meaningful_words:
+            if search_term == word:
+                found_in_words.append(word)
+        
+        # Search in aerospace term frequency
+        aerospace_terms = ["aircraft", "satellite", "rocket", "propulsion", "thrust", "engine", "spacecraft"]
+        for term in aerospace_terms:
+            if search_term == term:
+                found_in_aerospace_terms.append(term)
+
+        # Search in sentiment analysis (search in positive, negative, or neutral labels)
+        sentiment_labels = ['positive', 'negative', 'neutral']
+        for label in sentiment_labels:
+            if search_term == label:
+                found_in_sentiment.append(label)
+
+        # Display results
+        if found_in_words:
+            print(f'\nFound "{search_term}" in meaningful words:\n', found_in_words)
+        else:
+            print(f'\n"{search_term}" not found in meaningful words.')
+
+        if found_in_aerospace_terms:
+            print(f'\nFound "{search_term}" in aerospace terms:\n', found_in_aerospace_terms)
+        else:
+            print(f'\n"{search_term}" not found in aerospace terms.')
+
+        if found_in_sentiment:
+            print(f'\nFound "{search_term}" in sentiment analysis labels:\n', found_in_sentiment)
+        else:
+            print(f'\n"{search_term}" not found in sentiment analysis labels.')
+
+# ----------------------------Execute the code----------------------------------
+handle = HTMLPages()
+
+# HTML pages
+print('\nSCRAPING HTML PAGES')
+
+#html_url = 'https://www.reddit.com/r/space/comments/wpn030/can_someone_explain_to_me_why_people_are_still/'
+#html_url = "https://www.nasa.gov/history/" 
+html_url = "https://www.pewresearch.org/science/2023/07/20/americans-views-of-space-u-s-role-nasa-priorities-and-impact-of-private-companies/"
+
+
+handle.access_data(html_url)
+
+# Tokenize Sentences
+print('\nUNCLEAN TOKENIZED SENTENCES')
+handle.sentence_tokenizer()
+
+# Tokenize Words
+print('\nUNCLEAN TOKENIZED WORDS')
+handle.word_tokenizer()
+
+# Clean Meaningless Words
+print('\nMEANINGFUL WORDS')
+handle.clean_words()
+
+# Frequency of Words and Visualization
+print('\nFREQUENCY: MOST COMMON WORDS AND VISUALIZATION')
+handle.word_dist_visualizer()
+
+# Visualize and Decode Messages
+print('\nVISUAL DECODING FOR CYBERSECURITY')
+handle.decode_message()
+
+# Aerospace Features Analysis
+print('\nAEROSPACE TERM FREQUENCY')
+handle.frequency_analysis_aerospace_terms()
+
+# Sentiment Analysis of Webpage Content
+print('\nSENTIMENT ANALYSIS OF WEBPAGE CONTENT')
+handle.sentiment_analysis()
+
+# Aerospace Topics Summary
+print('\nAEROSPACE TOPICS SUMMARY')
+handle.summarize_aerospace_topics()
+
+# Search for a specific word
+search_term = "rocket"  # Example word to search
+handle.search_word(search_term)
+
+# Perform Search In Analysis
+search_term = "rocket"  # Example word to search in the analysis
+handle.search_in_analysis(search_term)
